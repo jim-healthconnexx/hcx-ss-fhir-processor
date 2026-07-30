@@ -1,0 +1,98 @@
+# HDC-175: Build the Docker image, push to ECR, and register a new task definition revision.
+# This app runs as a standalone ECS task — no ECS service.
+# Registering a new revision is sufficient; the invoker picks it up on next run.
+#
+# Triggers:
+#   - Push to main
+#   - Manual dispatch (workflow_dispatch)
+#
+# Required GitHub Secrets (Settings → Secrets → Environments → hcx-qa):
+#   AWS_ROLE_ARN_QA          - IAM role ARN for OIDC federation from GitHub Actions
+#   AWS_REGION               - AWS region (e.g. us-east-1)
+#   ECR_REPOSITORY_QA        - ECR repository name (e.g. hcx-ss-fhir-processor)
+#   ECS_TASK_DEFINITION_QA   - Task definition family name (e.g. hcx-ss-fhir-processor-qa)
+
+name: Deploy to QA
+
+on:
+  push:
+#    branches:
+#      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write  # HDC-175: Required for OIDC credential federation
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and Deploy to QA
+    runs-on: ubuntu-latest
+    environment: hcx-qa  # HDC-175: Secrets are scoped to this GitHub environment
+
+    steps:
+      - name: HDC-175 Checkout source
+        uses: actions/checkout@v7
+
+      - name: HDC-175 Set up Java 21 (Temurin) with Maven cache
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: HDC-175 Build JAR (skip tests)
+        run: ./mvnw -q -DskipTests package
+
+      - name: HDC-175 Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_QA }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: HDC-175 Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: HDC-175 Build and push Docker image (linux/amd64) to ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_QA }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker buildx build --platform linux/amd64 \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
+            --push .
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: HDC-175 Download current ECS task definition JSON
+        env:
+          ECS_TASK_DEFINITION: ${{ secrets.ECS_TASK_DEFINITION_QA }}
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$ECS_TASK_DEFINITION" \
+            --query taskDefinition \
+            > task-definition.json
+
+      - name: HDC-175 Render updated task definition with new image URI
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: hcx-ss-fhir-processor
+          image: ${{ steps.build-image.outputs.image }}
+          environment-variables: |
+            SPRING_PROFILES_ACTIVE=qa
+
+      - name: HDC-175 Register new task definition revision
+        id: register-task-def
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          # HDC-175: No service — standalone ECS task. Registering the new revision is sufficient.
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+
+      - name: HDC-175 Print registered task definition ARN
+        run: |
+          echo "Registered task definition ARN: ${{ steps.register-task-def.outputs.task-definition-arn }}"

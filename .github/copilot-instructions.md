@@ -1,10 +1,10 @@
 ## Stack
 - Java 21, Maven, Spring Boot 4
 - HTTPS api calls
-- No database interaction (no jOOQ, no JPA/Hibernate)
+- PostgreSQL via jOOQ (no JPA/Hibernate)
 
 ## Architecture
-- REST controllers → services 
+- REST controllers → services → jOOQ writers
 
 ## Conventions
 - Constructor injection only (`@RequiredArgsConstructor`); no field injection
