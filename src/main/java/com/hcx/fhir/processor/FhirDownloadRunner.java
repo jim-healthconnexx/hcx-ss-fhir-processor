@@ -66,7 +66,15 @@ public class FhirDownloadRunner implements ApplicationRunner {
         // HDC-175: Step 2 — download keystore from S3 and build mTLS SSLContext
         byte[] p12Bytes = keystoreService.downloadKeystore(
                 s3Properties.getKeystoreBucket(), s3Properties.getKeystoreKey());
-        SSLContext sslContext = keystoreService.buildSslContext(p12Bytes, keystorePassword);
+
+        // HDC-214: Optionally load extra CA bundle (e.g. staging .p7b) to extend the truststore.
+        byte[] extraCaBytes = null;
+        if (s3Properties.getTruststoreKey() != null && !s3Properties.getTruststoreKey().isBlank()) {
+            log.info("HDC-214: Loading extra CA bundle from s3://{}/{}", s3Properties.getKeystoreBucket(), s3Properties.getTruststoreKey());
+            extraCaBytes = keystoreService.downloadKeystore(s3Properties.getKeystoreBucket(), s3Properties.getTruststoreKey());
+        }
+
+        SSLContext sslContext = keystoreService.buildSslContext(p12Bytes, keystorePassword, extraCaBytes);
         HttpClient httpClient = fhirClient.buildHttpClient(sslContext);
 
         // HDC-175: Step 3 — query panels and process

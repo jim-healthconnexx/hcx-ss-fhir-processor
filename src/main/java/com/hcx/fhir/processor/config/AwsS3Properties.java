@@ -19,4 +19,8 @@ public class AwsS3Properties {
 
     /** S3 key prefix (folder) prepended to each FHIR output file, e.g. "fhir/". */
     private String fhirOutputKeyPrefix = "";
+
+    /** HDC-214: Optional S3 key for extra CA bundle (e.g. .p7b) to merge into the TrustManager.
+     *  Null by default — prod environments that don't need a custom CA leave this unset. */
+    private String truststoreKey;
 }
