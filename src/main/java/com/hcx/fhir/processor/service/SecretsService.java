@@ -40,9 +40,9 @@ public class SecretsService {
         String raw = fetchSecret(arn).trim();
         try {
             KeystorePasswordSecret secret = objectMapper.readValue(raw, KeystorePasswordSecret.class);
-            if (secret.getKeystorepassword() != null) {
+            if (secret.getKeystorePassword() != null) {
                 log.debug("HDC-212: Extracted keystore password from JSON secret arn={}", arn);
-                return secret.getKeystorepassword();
+                return secret.getKeystorePassword();
             }
         } catch (Exception e) {
             log.debug("HDC-212: Secret is not JSON, using raw string arn={}", arn);
