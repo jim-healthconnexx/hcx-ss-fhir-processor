@@ -77,11 +77,11 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
-        <!-- HDC-175: jOOQ dynamic DSL (no code generation); no Spring auto-config — DSLContext built manually from secrets-sourced JDBC connection -->
+        <!-- HDC-213: spring-boot-starter-jooq replaces standalone jooq — provides DSLContext bean via
+             DataSource auto-configuration (DbSecretsEnvironmentPostProcessor injects credentials). -->
         <dependency>
-            <groupId>org.jooq</groupId>
-            <artifactId>jooq</artifactId>
-            <version>3.19.10</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jooq</artifactId>
         </dependency>
 
         <!-- HDC-175: PostgreSQL JDBC driver -->

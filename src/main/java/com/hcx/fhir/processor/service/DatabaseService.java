@@ -10,6 +10,8 @@ import java.sql.DriverManager;
 // HDC-175: Builds a JDBC URL from DB credentials and opens a Connection.
 // Schema is set via currentSchema parameter so jOOQ calls use no schema prefix.
 // Callers must close the returned Connection (use try-with-resources).
+// @Deprecated HDC-213: Replaced by Spring Boot DataSource auto-configuration via DbSecretsEnvironmentPostProcessor.
+@Deprecated
 @Slf4j
 @Service
 public class DatabaseService {

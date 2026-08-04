@@ -1,0 +1,5 @@
+# HDC-213: Register DbSecretsEnvironmentPostProcessor so Spring Boot discovers it
+# before the ApplicationContext is created. This allows DB credentials to be
+# injected from AWS Secrets Manager before DataSource auto-configuration runs.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+  com.hcx.fhir.processor.config.DbSecretsEnvironmentPostProcessor

@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jooq.DSLContext;
 import org.jooq.Record;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -15,10 +16,10 @@ import static org.jooq.impl.DSL.field;
 import static org.jooq.impl.DSL.name;
 import static org.jooq.impl.DSL.table;
 
-// HDC-175: jOOQ queries against healthdata.panel.
-// Not a Spring bean — instantiated per-run with a DSLContext built from the secrets-sourced JDBC connection.
-// Schema is set via JDBC URL currentSchema=healthdata; no schema prefix in jOOQ calls.
+// HDC-213: Now a Spring @Component — DSLContext injected by Spring Boot jOOQ auto-configuration.
+// Schema is set via JDBC URL currentSchema=healthdata in the DB secret's dbname value; no schema prefix in jOOQ calls.
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class PanelService {
 

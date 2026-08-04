@@ -19,6 +19,8 @@ public class SecretsService {
     private final ObjectMapper objectMapper;
 
     // HDC-175: Deserializes the DB credentials JSON secret into DbCredentials.
+    // @Deprecated HDC-213: Replaced by DbSecretsEnvironmentPostProcessor. Use spring.datasource.* properties instead.
+    @Deprecated
     public DbCredentials getDbCredentials(String arn) {
         log.debug("HDC-175: Fetching DB credentials arn={}", arn);
         String secretString = fetchSecret(arn);
