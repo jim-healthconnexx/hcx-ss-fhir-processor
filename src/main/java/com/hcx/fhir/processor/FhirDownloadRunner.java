@@ -63,7 +63,8 @@ public class FhirDownloadRunner implements ApplicationRunner {
 
         // HDC-175: Step 1 — fetch credentials from Secrets Manager
         DbCredentials dbCreds = secretsService.getDbCredentials(secretsProperties.getDbCredentialsArn());
-        String keystorePassword = secretsService.getSecretString(secretsProperties.getKeystorePasswordArn());
+        // HDC-212: Use getKeystorePassword() to properly handle JSON-wrapped secrets from Secrets Manager.
+        String keystorePassword = secretsService.getKeystorePassword(secretsProperties.getKeystorePasswordArn());
 
         // HDC-175: Step 2 — download keystore from S3 and build mTLS SSLContext
         byte[] p12Bytes = keystoreService.downloadKeystore(
