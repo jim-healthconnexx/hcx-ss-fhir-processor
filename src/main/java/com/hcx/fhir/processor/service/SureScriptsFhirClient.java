@@ -34,13 +34,20 @@ public class SureScriptsFhirClient {
     }
 
     // HDC-175: Performs a GET request to the given FHIR URL and returns the raw JSON response body.
-    public String fetchFhirPage(String url, HttpClient httpClient) {
+    // HDC-215: senderUid is sent as X-SENDER-UID header; qualifier is fixed at 10 per MHP IG 1.1.1 s7.2.2.
+    public String fetchFhirPage(String url, HttpClient httpClient, String senderUid) {
         log.debug("HDC-175: Fetching FHIR page url={}", url);
+        if (senderUid == null || senderUid.isBlank()) {
+            log.error("HDC-215: senderUid is null or blank — cannot send X-SENDER-UID header url={}", url);
+            throw new RuntimeException("HDC-215: senderUid missing for FHIR request");
+        }
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Accept", "application/fhir+json")
                     .header("Content-Type", "application/fhir+json; charset=UTF-8")
+                    .header("X-SENDER-UID", senderUid)
+                    .header("X-SENDER-UID-QUALIFIER", "10")
                     .GET()
                     .build();
 

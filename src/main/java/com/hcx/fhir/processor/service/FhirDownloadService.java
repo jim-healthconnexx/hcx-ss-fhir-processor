@@ -33,7 +33,7 @@ public class FhirDownloadService {
         String initialUrl = buildInitialUrl(panel);
         log.debug("HDC-175: Starting FHIR download panelId={} url={}", panel.panelId(), initialUrl);
 
-        String firstPage = fhirClient.fetchFhirPage(initialUrl, httpClient);
+        String firstPage = fhirClient.fetchFhirPage(initialUrl, httpClient, panel.senderUid());
 
         if (fhirClient.hasNoResults(firstPage)) {
             log.debug("HDC-175: No FHIR data for panelId={}", panel.panelId());
@@ -45,7 +45,7 @@ public class FhirDownloadService {
 
         Optional<String> nextUrl = fhirClient.getNextPageUrl(firstPage);
         while (nextUrl.isPresent()) {
-            String pageJson = fhirClient.fetchFhirPage(nextUrl.get(), httpClient);
+            String pageJson = fhirClient.fetchFhirPage(nextUrl.get(), httpClient, panel.senderUid());
             pages.add(pageJson);
             nextUrl = fhirClient.getNextPageUrl(pageJson);
         }

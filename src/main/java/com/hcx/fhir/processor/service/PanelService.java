@@ -29,18 +29,22 @@ public class PanelService {
     private final DSLContext dsl;
 
     // HDC-175: Returns all panels with status = 'SS-Loaded'.
+    // HDC-215: JOINs product table to extract HDR.SenderID from file_config JSON for X-SENDER-UID header.
     public List<PanelRecord> fetchSsLoadedPanels() {
         log.debug("HDC-175: Querying panel table for status={}", STATUS_SS_LOADED);
         List<PanelRecord> panels = dsl.select(
-                        field(name("panel_id")),
-                        field(name("reference_number")),
-                        field(name("status")),
-                        field(name("created_on")),
-                        field(name("last_updated")),
-                        field(name("data_source")),
-                        field(name("sent_request_filename")))
-                .from(table(name("panel")))
-                .where(field(name("status")).eq(STATUS_SS_LOADED))
+                        field(name("p", "panel_id")),
+                        field(name("p", "reference_number")),
+                        field(name("p", "status")),
+                        field(name("p", "created_on")),
+                        field(name("p", "last_updated")),
+                        field(name("p", "data_source")),
+                        field(name("p", "sent_request_filename")),
+                        field("({0}::jsonb->'HDR'->>'SenderID')", String.class, field(name("pr", "file_config"))).as("sender_uid"))
+                .from(table(name("panel")).as("p"))
+                .join(table(name("product")).as("pr"))
+                .on(field(name("p", "product_id")).eq(field(name("pr", "product_id"))))
+                .where(field(name("p", "status")).eq(STATUS_SS_LOADED))
                 .fetch(this::toPanelRecord);
         log.debug("HDC-175: Found {} SS-Loaded panel(s)", panels.size());
         return panels;
@@ -74,7 +78,9 @@ public class PanelService {
                 toOffsetDateTime(r.get(field(name("created_on")), LocalDateTime.class)),
                 toOffsetDateTime(r.get(field(name("last_updated")), LocalDateTime.class)),
                 r.get(field(name("data_source")), String.class),
-                r.get(field(name("sent_request_filename")), String.class)
+                r.get(field(name("sent_request_filename")), String.class),
+                // HDC-215: SenderID from product.file_config HDR used as X-SENDER-UID in FHIR requests.
+                r.get(field(name("sender_uid")), String.class)
         );
     }
 
