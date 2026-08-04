@@ -45,14 +45,19 @@ public class SureScriptsFhirClient {
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            String responseBody = response.body();
             log.debug("HDC-175: FHIR page response status={} url={}", response.statusCode(), url);
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                log.error("HDC-175: FHIR API returned non-2xx status={} url={}", response.statusCode(), url);
-                throw new RuntimeException("HDC-175: FHIR API error status=" + response.statusCode());
+                // HDC-215: Log response body so the SureScripts error payload is visible in CloudWatch.
+                log.error("HDC-175: FHIR API returned non-2xx status={} url={} body={}", response.statusCode(), url, responseBody);
+                String truncatedBody = responseBody != null && responseBody.length() > 500
+                        ? responseBody.substring(0, 500) + "…"
+                        : responseBody;
+                throw new RuntimeException("HDC-175: FHIR API error status=" + response.statusCode() + " body=" + truncatedBody);
             }
 
-            return response.body();
+            return responseBody;
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
