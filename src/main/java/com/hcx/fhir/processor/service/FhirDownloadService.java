@@ -56,6 +56,7 @@ public class FhirDownloadService {
 
     // HDC-175: Builds the initial FHIR query URL for the panel.
     // _lastUpdated=gt{createdOn} and _lastUpdated=lt{lastUpdated+2h or createdOn+2h}
+    // HDC-218: Added _include and _include:iterate parameters to fetch related resources.
     String buildInitialUrl(PanelRecord panel) {
         OffsetDateTime createdOn = panel.createdOn().withOffsetSameInstant(ZoneOffset.UTC);
         OffsetDateTime lastUpdated = resolveUpperBound(panel);
@@ -64,7 +65,14 @@ public class FhirDownloadService {
                 "?category=panel" +
                 "&identifier=" + panel.referenceNumber() +
                 "&_lastUpdated=gt" + createdOn.format(UTC_FMT) +
-                "&_lastUpdated=lt" + lastUpdated.format(UTC_FMT);
+                "&_lastUpdated=lt" + lastUpdated.format(UTC_FMT) +
+                "&_include=Communication:based-on" +
+                "&_include:iterate=Communication:subject" +
+                "&_include:iterate=MedicationRequest:requester" +
+                "&_include:iterate=MedicationRequest:medication" +
+                "&_include:iterate=MedicationDispense:performer" +
+                "&_include:iterate=MedicationDispense:prescription" +
+                "&_include:iterate=MedicationRequest:intended-performer";
     }
 
     // HDC-175: Upper bound = lastUpdated + 2h, unless lastUpdated is null or before createdOn,
