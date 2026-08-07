@@ -97,9 +97,13 @@ public class FhirDownloadRunner implements ApplicationRunner {
     }
 
     // HDC-175: Processes a single panel — fetches FHIR data, stores in S3, updates DB status.
+    // HDC-227: Compute nextLastUpdated before the FHIR call; always write it back regardless of data found.
     private void processPanel(PanelRecord panel, HttpClient httpClient) {
         log.debug("HDC-175: Processing panelId={} referenceNumber={}", panel.panelId(), panel.referenceNumber());
         try {
+            // HDC-227: Capture the upper-bound before the call — this becomes the new panel.last_updated.
+            OffsetDateTime nextLastUpdated = fhirDownloadService.computeNextLastUpdated(panel);
+
             Optional<String> fhirJson = fhirDownloadService.downloadAllPagesForPanel(panel, httpClient);
 
             if (fhirJson.isPresent()) {
@@ -108,10 +112,12 @@ public class FhirDownloadRunner implements ApplicationRunner {
                 panelService.updatePanelStatusFhirReceived(panel.panelId());
                 log.info("HDC-175: Panel processed successfully panelId={}", panel.panelId());
             } else {
-                // HDC-175: No data — update last_updated to now and move on
-                panelService.updatePanelLastUpdated(panel.panelId(), OffsetDateTime.now());
-                log.info("HDC-175: No FHIR data for panelId={} — last_updated refreshed", panel.panelId());
+                log.info("HDC-227: No FHIR data for panelId={}", panel.panelId());
             }
+
+            // HDC-227: Always advance last_updated to the upper bound of the window just queried.
+            panelService.updatePanelLastUpdated(panel.panelId(), nextLastUpdated);
+            log.debug("HDC-227: Updated last_updated panelId={} nextLastUpdated={}", panel.panelId(), nextLastUpdated);
         } catch (Exception e) {
             log.error("HDC-175: Error processing panelId={} — skipping panel", panel.panelId(), e);
         }

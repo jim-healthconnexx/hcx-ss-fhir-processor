@@ -55,17 +55,18 @@ public class FhirDownloadService {
     }
 
     // HDC-175: Builds the initial FHIR query URL for the panel.
-    // _lastUpdated=gt{createdOn} and _lastUpdated=lt{lastUpdated+2h or createdOn+2h}
+    // HDC-227: When last_updated IS NULL: gt{createdOn} lt{currentDateTime}
+    //          When last_updated IS NOT NULL: gt{lastUpdated} lt{lastUpdated+2h}
     // HDC-218: Added _include and _include:iterate parameters to fetch related resources.
     String buildInitialUrl(PanelRecord panel) {
-        OffsetDateTime createdOn = panel.createdOn().withOffsetSameInstant(ZoneOffset.UTC);
-        OffsetDateTime lastUpdated = resolveUpperBound(panel);
+        OffsetDateTime lowerBound = resolveLowerBound(panel);
+        OffsetDateTime upperBound = computeNextLastUpdated(panel);
 
         return fhirProperties.getBaseUrl() + "/Communication" +
                 "?category=panel" +
                 "&identifier=" + panel.referenceNumber() +
-                "&_lastUpdated=gt" + createdOn.format(UTC_FMT) +
-                "&_lastUpdated=lt" + lastUpdated.format(UTC_FMT) +
+                "&_lastUpdated=gt" + lowerBound.format(UTC_FMT) +
+                "&_lastUpdated=lt" + upperBound.format(UTC_FMT) +
                 "&_include=Communication:based-on" +
                 "&_include:iterate=Communication:subject" +
                 "&_include:iterate=MedicationRequest:requester" +
@@ -75,8 +76,30 @@ public class FhirDownloadService {
                 "&_include:iterate=MedicationRequest:intended-performer";
     }
 
+    // HDC-227: Lower bound for _lastUpdated query.
+    // When last_updated IS NULL: use panel.created_on.
+    // When last_updated IS NOT NULL: use panel.last_updated.
+    private OffsetDateTime resolveLowerBound(PanelRecord panel) {
+        if (panel.lastUpdated() == null) {
+            return panel.createdOn().withOffsetSameInstant(ZoneOffset.UTC);
+        }
+        return panel.lastUpdated().withOffsetSameInstant(ZoneOffset.UTC);
+    }
+
+    // HDC-227: Computes the upper bound for _lastUpdated query and the value to write back to panel.last_updated.
+    // When last_updated IS NULL: currentDateTime (captured once per panel run).
+    // When last_updated IS NOT NULL: panel.last_updated + 2h.
+    public OffsetDateTime computeNextLastUpdated(PanelRecord panel) {
+        if (panel.lastUpdated() == null) {
+            return OffsetDateTime.now(ZoneOffset.UTC);
+        }
+        return panel.lastUpdated().withOffsetSameInstant(ZoneOffset.UTC).plusHours(LOOKBACK_HOURS);
+    }
+
     // HDC-175: Upper bound = lastUpdated + 2h, unless lastUpdated is null or before createdOn,
     // in which case = createdOn + 2h.
+    // HDC-227: Replaced by resolveLowerBound() and computeNextLastUpdated().
+    @Deprecated
     private OffsetDateTime resolveUpperBound(PanelRecord panel) {
         OffsetDateTime createdOn = panel.createdOn().withOffsetSameInstant(ZoneOffset.UTC);
         OffsetDateTime lastUpdated = panel.lastUpdated() != null
