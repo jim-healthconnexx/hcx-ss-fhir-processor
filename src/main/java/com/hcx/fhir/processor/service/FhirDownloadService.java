@@ -58,6 +58,7 @@ public class FhirDownloadService {
     // HDC-227: When last_updated IS NULL: gt{createdOn} lt{currentDateTime}
     //          When last_updated IS NOT NULL: gt{lastUpdated} lt{lastUpdated+2h}
     // HDC-218: Added _include and _include:iterate parameters to fetch related resources.
+    // HDC-232: Added _revinclude=Condition:subject to return Condition resources for each Patient in the Bundle.
     String buildInitialUrl(PanelRecord panel) {
         OffsetDateTime lowerBound = resolveLowerBound(panel);
         OffsetDateTime upperBound = computeNextLastUpdated(panel);
@@ -73,7 +74,8 @@ public class FhirDownloadService {
                 "&_include:iterate=MedicationRequest:medication" +
                 "&_include:iterate=MedicationDispense:performer" +
                 "&_include:iterate=MedicationDispense:prescription" +
-                "&_include:iterate=MedicationRequest:intended-performer";
+                "&_include:iterate=MedicationRequest:intended-performer" +
+                "&_revinclude=Condition:subject";
     }
 
     // HDC-227: Lower bound for _lastUpdated query.
