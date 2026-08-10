@@ -13,7 +13,8 @@ public class EcsProperties {
     /** ARN or short name of the ECS cluster to run the import task on. */
     private String clusterArn;
 
-    /** ARN or family:revision of the hcx-ss-fhir-import task definition. */
+    /** Family name (or ARN) of the hcx-ss-fhir-import task definition.
+     *  Use the family name (e.g. "hcx-ss-fhir-import") to always run the latest active revision. */
     private String taskDefinitionArn;
 
     /** VPC subnet IDs for the Fargate task's awsvpc network configuration. */
