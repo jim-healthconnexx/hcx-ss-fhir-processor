@@ -3,6 +3,7 @@ package com.hcx.fhir.processor;
 import com.hcx.fhir.processor.config.AwsS3Properties;
 import com.hcx.fhir.processor.config.SecretsProperties;
 import com.hcx.fhir.processor.model.PanelRecord;
+import com.hcx.fhir.processor.service.EcsTaskService;
 import com.hcx.fhir.processor.service.FhirDownloadService;
 import com.hcx.fhir.processor.service.KeystoreService;
 import com.hcx.fhir.processor.service.PanelService;
@@ -52,6 +53,7 @@ public class FhirDownloadRunner implements ApplicationRunner {
     private final S3FhirOutputService s3FhirOutputService;
     private final SureScriptsFhirClient fhirClient;
     private final PanelService panelService;
+    private final EcsTaskService ecsTaskService;
     private final ApplicationContext applicationContext;
 
     @Override
@@ -88,6 +90,15 @@ public class FhirDownloadRunner implements ApplicationRunner {
             }
         } catch (Exception e) {
             log.error("HDC-175: Fatal error during FHIR download run", e);
+            exitApplication(1);
+            return;
+        }
+
+        // HDC-233: Trigger the downstream ECS import task now that all FHIR processing is complete.
+        try {
+            ecsTaskService.runImportTask();
+        } catch (Exception e) {
+            log.error("HDC-233: Failed to trigger ECS import task — aborting", e);
             exitApplication(1);
             return;
         }

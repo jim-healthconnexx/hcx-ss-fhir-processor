@@ -71,6 +71,12 @@
             <artifactId>sts</artifactId>
         </dependency>
 
+        <!-- HDC-233: AWS SDK v2 ECS — trigger hcx-ss-fhir-import task after FHIR processing -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>ecs</artifactId>
+        </dependency>
+
         <!-- HDC-175: Jackson for deserializing DB credentials JSON secret -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
