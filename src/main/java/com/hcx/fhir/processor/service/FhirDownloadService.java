@@ -55,19 +55,13 @@ public class FhirDownloadService {
     }
 
     // HDC-175: Builds the initial FHIR query URL for the panel.
-    // HDC-227: When last_updated IS NULL: gt{createdOn} lt{currentDateTime}
-    //          When last_updated IS NOT NULL: gt{lastUpdated} lt{lastUpdated+2h}
     // HDC-218: Added _include and _include:iterate parameters to fetch related resources.
     // HDC-232: Added _revinclude=Condition:subject to return Condition resources for each Patient in the Bundle.
+    // HDC-236: Removed _lastUpdated parameters from the FHIR query URL.
     String buildInitialUrl(PanelRecord panel) {
-        OffsetDateTime lowerBound = resolveLowerBound(panel);
-        OffsetDateTime upperBound = computeNextLastUpdated(panel);
-
         return fhirProperties.getBaseUrl() + "/Communication" +
                 "?category=panel" +
                 "&identifier=" + panel.referenceNumber() +
-                "&_lastUpdated=gt" + lowerBound.format(UTC_FMT) +
-                "&_lastUpdated=lt" + upperBound.format(UTC_FMT) +
                 "&_include=Communication:based-on" +
                 "&_include:iterate=Communication:subject" +
                 "&_include:iterate=MedicationRequest:requester" +
@@ -81,6 +75,8 @@ public class FhirDownloadService {
     // HDC-227: Lower bound for _lastUpdated query.
     // When last_updated IS NULL: use panel.created_on.
     // When last_updated IS NOT NULL: use panel.last_updated.
+    // HDC-236: No longer used; _lastUpdated removed from FHIR query URL.
+    @Deprecated
     private OffsetDateTime resolveLowerBound(PanelRecord panel) {
         if (panel.lastUpdated() == null) {
             return panel.createdOn().withOffsetSameInstant(ZoneOffset.UTC);
