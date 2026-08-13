@@ -90,4 +90,36 @@ public class SureScriptsFhirClient {
     public boolean hasNoResults(String bundleJson) {
         return bundleJson.contains("\"total\":0") || bundleJson.contains("\"total\": 0");
     }
+
+    // HDC-239: Fetches the FHIR CapabilityStatement from {baseUrl}/metadata.
+    // No X-SENDER-UID headers required — this is a server-level resource endpoint.
+    public String fetchCapabilitiesStatement(String url, HttpClient httpClient) {
+        log.debug("HDC-239: Fetching CapabilityStatement url={}", url);
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Accept", "application/fhir+json")
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            String responseBody = response.body();
+            log.debug("HDC-239: CapabilityStatement response status={}", response.statusCode());
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.error("HDC-239: CapabilityStatement API returned non-2xx status={} url={} body={}", response.statusCode(), url, responseBody);
+                String truncatedBody = responseBody != null && responseBody.length() > 500
+                        ? responseBody.substring(0, 500) + "…"
+                        : responseBody;
+                throw new RuntimeException("HDC-239: CapabilityStatement API error status=" + response.statusCode() + " body=" + truncatedBody);
+            }
+
+            return responseBody;
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("HDC-239: Failed to fetch CapabilityStatement url={}", url, e);
+            throw new RuntimeException("HDC-239: Failed to fetch CapabilityStatement", e);
+        }
+    }
 }

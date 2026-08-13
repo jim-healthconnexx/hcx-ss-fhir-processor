@@ -1,6 +1,7 @@
 package com.hcx.fhir.processor;
 
 import com.hcx.fhir.processor.config.AwsS3Properties;
+import com.hcx.fhir.processor.config.FhirProperties;
 import com.hcx.fhir.processor.config.SecretsProperties;
 import com.hcx.fhir.processor.model.PanelRecord;
 import com.hcx.fhir.processor.service.EcsTaskService;
@@ -49,6 +50,7 @@ public class FhirDownloadRunner implements ApplicationRunner {
     private final SecretsProperties secretsProperties;
     private final KeystoreService keystoreService;
     private final AwsS3Properties s3Properties;
+    private final FhirProperties fhirProperties;
     private final FhirDownloadService fhirDownloadService;
     private final S3FhirOutputService s3FhirOutputService;
     private final SureScriptsFhirClient fhirClient;
@@ -79,6 +81,17 @@ public class FhirDownloadRunner implements ApplicationRunner {
         SSLContext sslContext = keystoreService.buildSslContext(p12Bytes, keystorePassword, extraCaBytes);
         HttpClient httpClient = fhirClient.buildHttpClient(sslContext);
 
+        // HDC-239: Optionally fetch and store the SureScripts CapabilityStatement.
+        if (fhirProperties.isCapabilitiesEnabled()) {
+            try {
+                fetchAndStoreCapabilitiesStatement(httpClient);
+            } catch (Exception e) {
+                log.error("HDC-239: Failed to fetch CapabilityStatement — aborting", e);
+                exitApplication(1);
+                return;
+            }
+        }
+
         // HDC-175: Step 3 — query panels and process
         try {
             List<PanelRecord> panels = panelService.fetchSsLoadedPanels();
@@ -105,6 +118,15 @@ public class FhirDownloadRunner implements ApplicationRunner {
 
         log.info("HDC-175: FHIR download runner complete");
         exitApplication(0);
+    }
+
+    // HDC-239: Fetches the SureScripts CapabilityStatement and writes it to S3.
+    private void fetchAndStoreCapabilitiesStatement(HttpClient httpClient) {
+        String url = fhirProperties.getBaseUrl() + "/metadata";
+        log.info("HDC-239: Fetching CapabilityStatement url={}", url);
+        String json = fhirClient.fetchCapabilitiesStatement(url, httpClient);
+        s3FhirOutputService.saveCapabilitiesStatementToS3(json);
+        log.info("HDC-239: CapabilityStatement stored successfully");
     }
 
     // HDC-175: Processes a single panel — fetches FHIR data, stores in S3, updates DB status.

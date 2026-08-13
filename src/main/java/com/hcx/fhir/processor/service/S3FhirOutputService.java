@@ -43,6 +43,28 @@ public class S3FhirOutputService {
         }
     }
 
+    // HDC-239: Uploads the CapabilityStatement JSON to S3 as capabilities_statement.json.
+    public void saveCapabilitiesStatementToS3(String json) {
+        String key = buildKey("capabilities_statement.json");
+        String bucket = s3Properties.getFhirOutputBucket();
+
+        log.debug("HDC-239: Uploading CapabilityStatement to s3://{}/{}", bucket, key);
+        try {
+            byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+            s3Client.putObject(
+                    PutObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(key)
+                            .contentType("application/json")
+                            .build(),
+                    RequestBody.fromBytes(bytes));
+            log.info("HDC-239: Uploaded CapabilityStatement to s3://{}/{}", bucket, key);
+        } catch (Exception e) {
+            log.error("HDC-239: Failed to upload CapabilityStatement to s3://{}/{}", bucket, key, e);
+            throw new RuntimeException("HDC-239: Failed to upload CapabilityStatement to S3", e);
+        }
+    }
+
     // HDC-175: Builds the S3 filename: {dataSource without .txt}-{sentRequestFilename without .txt}-fhir.json
     String buildFilename(PanelRecord panel) {
         String dataSource = stripTxt(panel.dataSource());

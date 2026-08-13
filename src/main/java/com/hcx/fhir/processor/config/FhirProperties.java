@@ -10,4 +10,7 @@ public class FhirProperties {
 
     /** Base URL for the SureScripts FHIR API (e.g. https://staging.care-coordination.surescripts.net/ext/v1). */
     private String baseUrl;
+
+    /** HDC-239: When true, fetch and store the SureScripts CapabilityStatement on each run. */
+    private boolean capabilitiesEnabled = false;
 }
