@@ -92,13 +92,15 @@ public class SureScriptsFhirClient {
     }
 
     // HDC-239: Fetches the FHIR CapabilityStatement from {baseUrl}/metadata.
-    // No X-SENDER-UID headers required — this is a server-level resource endpoint.
-    public String fetchCapabilitiesStatement(String url, HttpClient httpClient) {
+    // HDC-242: senderUid now required — same X-SENDER-UID / X-SENDER-UID-QUALIFIER auth as panel FHIR calls.
+    public String fetchCapabilitiesStatement(String url, HttpClient httpClient, String senderUid) {
         log.debug("HDC-239: Fetching CapabilityStatement url={}", url);
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Accept", "application/fhir+json")
+                    .header("X-SENDER-UID", senderUid)
+                    .header("X-SENDER-UID-QUALIFIER", "10")
                     .GET()
                     .build();
 

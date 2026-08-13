@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 
 import static org.jooq.impl.DSL.field;
 import static org.jooq.impl.DSL.name;
@@ -48,6 +49,18 @@ public class PanelService {
                 .fetch(this::toPanelRecord);
         log.debug("HDC-175: Found {} SS-Loaded panel(s)", panels.size());
         return panels;
+    }
+
+    // HDC-242: Fetches any senderUid from product.file_config for use in CapabilityStatement auth header.
+    // The /metadata endpoint is server-level; any valid SenderID works.
+    public Optional<String> fetchAnySenderUid() {
+        String senderUid = dsl.select(
+                        field("({0}::jsonb->'HDR'->>'SenderID')", String.class, field(name("file_config"))))
+                .from(table(name("product")))
+                .where(field(name("file_config")).isNotNull())
+                .limit(1)
+                .fetchOne(0, String.class);
+        return Optional.ofNullable(senderUid);
     }
 
     // HDC-175: Updates panel.status to 'SS-FHIR-Received' after successful FHIR download.

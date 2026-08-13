@@ -82,13 +82,12 @@ public class FhirDownloadRunner implements ApplicationRunner {
         HttpClient httpClient = fhirClient.buildHttpClient(sslContext);
 
         // HDC-239: Optionally fetch and store the SureScripts CapabilityStatement.
+        // HDC-242: Failure is non-fatal — log a warning and continue panel processing.
         if (fhirProperties.isCapabilitiesEnabled()) {
             try {
                 fetchAndStoreCapabilitiesStatement(httpClient);
             } catch (Exception e) {
-                log.error("HDC-239: Failed to fetch CapabilityStatement — aborting", e);
-                exitApplication(1);
-                return;
+                log.warn("HDC-242: Failed to fetch CapabilityStatement — continuing without it", e);
             }
         }
 
@@ -121,10 +120,13 @@ public class FhirDownloadRunner implements ApplicationRunner {
     }
 
     // HDC-239: Fetches the SureScripts CapabilityStatement and writes it to S3.
+    // HDC-242: senderUid resolved from product.file_config and passed as X-SENDER-UID auth header.
     private void fetchAndStoreCapabilitiesStatement(HttpClient httpClient) {
+        String senderUid = panelService.fetchAnySenderUid()
+                .orElseThrow(() -> new RuntimeException("HDC-242: No senderUid found in product.file_config — cannot fetch CapabilityStatement"));
         String url = fhirProperties.getBaseUrl() + "/metadata";
         log.info("HDC-239: Fetching CapabilityStatement url={}", url);
-        String json = fhirClient.fetchCapabilitiesStatement(url, httpClient);
+        String json = fhirClient.fetchCapabilitiesStatement(url, httpClient, senderUid);
         s3FhirOutputService.saveCapabilitiesStatementToS3(json);
         log.info("HDC-239: CapabilityStatement stored successfully");
     }
