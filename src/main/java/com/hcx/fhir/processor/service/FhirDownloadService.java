@@ -58,6 +58,7 @@ public class FhirDownloadService {
     // HDC-218: Added _include and _include:iterate parameters to fetch related resources.
     // HDC-232: Added _revinclude=Condition:subject to return Condition resources for each Patient in the Bundle.
     // HDC-236: Removed _lastUpdated parameters from the FHIR query URL.
+    // HDC-244: Changed _revinclude to _revinclude:iterate for Condition:subject to support recursive inclusion.
     String buildInitialUrl(PanelRecord panel) {
         return fhirProperties.getBaseUrl() + "/Communication" +
                 "?category=panel" +
@@ -69,7 +70,7 @@ public class FhirDownloadService {
                 "&_include:iterate=MedicationDispense:performer" +
                 "&_include:iterate=MedicationDispense:prescription" +
                 "&_include:iterate=MedicationRequest:intended-performer" +
-                "&_revinclude=Condition:subject";
+                "&_revinclude:iterate=Condition:subject";
     }
 
     // HDC-227: Lower bound for _lastUpdated query.
