@@ -121,10 +121,14 @@ public class FhirDownloadRunner implements ApplicationRunner {
 
     // HDC-239: Fetches the SureScripts CapabilityStatement and writes it to S3.
     // HDC-242: senderUid resolved from product.file_config and passed as X-SENDER-UID auth header.
+    // HDC-245: URL is now driven from fhirProperties.capabilitiesUrl (per-env configurable).
     private void fetchAndStoreCapabilitiesStatement(HttpClient httpClient) {
+        String url = fhirProperties.getCapabilitiesUrl();
+        if (url == null || url.isBlank()) {
+            throw new RuntimeException("HDC-245: surescripts.fhir.capabilities-url must be set when capabilities-enabled=true");
+        }
         String senderUid = panelService.fetchAnySenderUid()
                 .orElseThrow(() -> new RuntimeException("HDC-242: No senderUid found in product.file_config — cannot fetch CapabilityStatement"));
-        String url = fhirProperties.getBaseUrl() + "/metadata";
         log.info("HDC-239: Fetching CapabilityStatement url={}", url);
         String json = fhirClient.fetchCapabilitiesStatement(url, httpClient, senderUid);
         s3FhirOutputService.saveCapabilitiesStatementToS3(json);

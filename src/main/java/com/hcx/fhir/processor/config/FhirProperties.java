@@ -13,4 +13,7 @@ public class FhirProperties {
 
     /** HDC-239: When true, fetch and store the SureScripts CapabilityStatement on each run. */
     private boolean capabilitiesEnabled = false;
+
+    /** HDC-245: Full URL for the SureScripts CapabilityStatement endpoint (varies per environment). */
+    private String capabilitiesUrl;
 }
