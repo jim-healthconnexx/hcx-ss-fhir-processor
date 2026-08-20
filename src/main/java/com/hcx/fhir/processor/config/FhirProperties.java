@@ -16,4 +16,7 @@ public class FhirProperties {
 
     /** HDC-245: Full URL for the SureScripts CapabilityStatement endpoint (varies per environment). */
     private String capabilitiesUrl;
+
+    /** HDC-261: Number of resources to request per FHIR page via _count parameter. */
+    private int pageCount = 100;
 }

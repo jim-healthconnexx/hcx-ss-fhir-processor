@@ -26,6 +26,8 @@ public class PanelService {
 
     static final String STATUS_SS_LOADED = "SS-Loaded";
     static final String STATUS_SS_FHIR_RECEIVED = "SS-FHIR-Received";
+    // HDC-261: Status set when an exception occurs during per-page FHIR processing.
+    static final String STATUS_ERROR_FHIR_PROCESSING = "ERROR-FHIR-PROCESSING";
 
     private final DSLContext dsl;
 
@@ -41,7 +43,8 @@ public class PanelService {
                         field(name("p", "last_updated")),
                         field(name("p", "data_source")),
                         field(name("p", "sent_request_filename")),
-                        field("({0}::jsonb->'HDR'->>'SenderID')", String.class, field(name("pr", "file_config"))).as("sender_uid"))
+                        field("({0}::jsonb->'HDR'->>'SenderID')", String.class, field(name("pr", "file_config"))).as("sender_uid"),
+                        field(name("p", "fhir_next_url")))
                 .from(table(name("panel")).as("p"))
                 .join(table(name("product")).as("pr"))
                 .on(field(name("p", "product_id")).eq(field(name("pr", "product_id"))))
@@ -83,6 +86,27 @@ public class PanelService {
         log.debug("HDC-175: Updated panel panelId={} last_updated={}", panelId, now);
     }
 
+    // HDC-261: Updates panel.fhir_next_url after each FHIR page is written.
+    // Pass null to clear the field when paging is complete.
+    public void updatePanelFhirNextUrl(int panelId, String fhirNextUrl) {
+        log.debug("HDC-261: Updating panel panelId={} fhir_next_url={}", panelId, fhirNextUrl);
+        dsl.update(table(name("panel")))
+                .set(field(name("fhir_next_url")), fhirNextUrl)
+                .where(field(name("panel_id")).eq(panelId))
+                .execute();
+        log.debug("HDC-261: Updated panel panelId={} fhir_next_url={}", panelId, fhirNextUrl);
+    }
+
+    // HDC-261: Updates panel.status to ERROR-FHIR-PROCESSING when an exception occurs mid-paging.
+    public void updatePanelStatusErrorFhirProcessing(int panelId) {
+        log.debug("HDC-261: Updating panel panelId={} status={}", panelId, STATUS_ERROR_FHIR_PROCESSING);
+        dsl.update(table(name("panel")))
+                .set(field(name("status")), STATUS_ERROR_FHIR_PROCESSING)
+                .where(field(name("panel_id")).eq(panelId))
+                .execute();
+        log.debug("HDC-261: Updated panel panelId={} status={}", panelId, STATUS_ERROR_FHIR_PROCESSING);
+    }
+
     private PanelRecord toPanelRecord(Record r) {
         return new PanelRecord(
                 r.get(field(name("panel_id")), Integer.class),
@@ -93,7 +117,9 @@ public class PanelService {
                 r.get(field(name("data_source")), String.class),
                 r.get(field(name("sent_request_filename")), String.class),
                 // HDC-215: SenderID from product.file_config HDR used as X-SENDER-UID in FHIR requests.
-                r.get(field(name("sender_uid")), String.class)
+                r.get(field(name("sender_uid")), String.class),
+                // HDC-261: Resume URL for paging; null when no active page sequence.
+                r.get(field(name("fhir_next_url")), String.class)
         );
     }
 

@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 
 // HDC-175: Immutable view of a panel row returned from the DB query.
 // HDC-215: Added senderUid — extracted from product.file_config HDR.SenderID for X-SENDER-UID header.
+// HDC-261: Added fhirNextUrl — tracks paging resume point; null when no active page sequence.
 public record PanelRecord(
         int panelId,
         String referenceNumber,
@@ -12,5 +13,6 @@ public record PanelRecord(
         OffsetDateTime lastUpdated,
         String dataSource,
         String sentRequestFilename,
-        String senderUid
+        String senderUid,
+        String fhirNextUrl
 ) {}

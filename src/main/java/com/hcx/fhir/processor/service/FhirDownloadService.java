@@ -29,6 +29,8 @@ public class FhirDownloadService {
 
     // HDC-175: Downloads all FHIR pages for the given panel.
     // Returns the assembled JSON (array of raw page responses), or empty if no data available.
+    // HDC-261: Replaced by per-page processing loop in FhirDownloadRunner.processPanel().
+    @Deprecated
     public Optional<String> downloadAllPagesForPanel(PanelRecord panel, HttpClient httpClient) {
         String initialUrl = buildInitialUrl(panel);
         log.debug("HDC-175: Starting FHIR download panelId={} url={}", panel.panelId(), initialUrl);
@@ -59,10 +61,12 @@ public class FhirDownloadService {
     // HDC-232: Added _revinclude=Condition:subject to return Condition resources for each Patient in the Bundle.
     // HDC-236: Removed _lastUpdated parameters from the FHIR query URL.
     // HDC-244: Changed _revinclude to _revinclude:iterate for Condition:subject to support recursive inclusion.
-    String buildInitialUrl(PanelRecord panel) {
+    // HDC-261: Added _count parameter driven from surescripts.fhir.page-count property.
+    public String buildInitialUrl(PanelRecord panel) {
         return fhirProperties.getBaseUrl() + "/Communication" +
                 "?category=panel" +
                 "&identifier=" + panel.referenceNumber() +
+                "&_count=" + fhirProperties.getPageCount() +
                 "&_include=Communication:based-on" +
                 "&_include:iterate=Communication:subject" +
                 "&_include:iterate=MedicationRequest:requester" +
@@ -113,6 +117,8 @@ public class FhirDownloadService {
 
     // HDC-175: Wraps all raw page JSON bodies in a JSON array.
     // No parsing of FHIR clinical data occurs here.
+    // HDC-261: Replaced by per-page S3 writes in FhirDownloadRunner.processPanel().
+    @Deprecated
     private String assemblePages(List<String> pages) {
         if (pages.size() == 1) {
             return pages.get(0);

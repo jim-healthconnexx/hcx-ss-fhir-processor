@@ -50,6 +50,7 @@ CREATE TABLE healthdata.panel (
     -- HDC-25: filename of the sent request file generated for this panel
     sent_request_filename varchar(255) NULL,
     last_updated timestamptz NULL,
+    fhir_next_url text NULL,
     CONSTRAINT xpk_panel PRIMARY KEY (panel_id));
 
 CREATE TABLE healthdata.patient (

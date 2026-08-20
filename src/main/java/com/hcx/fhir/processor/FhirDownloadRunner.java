@@ -14,7 +14,6 @@ import com.hcx.fhir.processor.service.SureScriptsFhirClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ApplicationContext;
@@ -24,7 +23,6 @@ import javax.net.ssl.SSLContext;
 import java.net.http.HttpClient;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * HDC-175: ApplicationRunner that drives the FHIR download processing loop.
@@ -137,17 +135,41 @@ public class FhirDownloadRunner implements ApplicationRunner {
 
     // HDC-175: Processes a single panel — fetches FHIR data, stores in S3, updates DB status.
     // HDC-227: Compute nextLastUpdated before the FHIR call; always write it back regardless of data found.
+    // HDC-261: Per-page loop with resume-from fhir_next_url support and ERROR-FHIR-PROCESSING on failure.
     private void processPanel(PanelRecord panel, HttpClient httpClient) {
         log.debug("HDC-175: Processing panelId={} referenceNumber={}", panel.panelId(), panel.referenceNumber());
+
+        // HDC-227: Capture the upper-bound before the call — this becomes the new panel.last_updated.
+        OffsetDateTime nextLastUpdated = fhirDownloadService.computeNextLastUpdated(panel);
+
+        // HDC-261: Resume from stored fhir_next_url if present; otherwise build the initial URL.
+        String currentUrl = (panel.fhirNextUrl() != null && !panel.fhirNextUrl().isBlank())
+                ? panel.fhirNextUrl()
+                : fhirDownloadService.buildInitialUrl(panel);
+
+        boolean anyDataFound = false;
+
         try {
-            // HDC-227: Capture the upper-bound before the call — this becomes the new panel.last_updated.
-            OffsetDateTime nextLastUpdated = fhirDownloadService.computeNextLastUpdated(panel);
+            while (currentUrl != null) {
+                String pageJson = fhirClient.fetchFhirPage(currentUrl, httpClient, panel.senderUid());
 
-            Optional<String> fhirJson = fhirDownloadService.downloadAllPagesForPanel(panel, httpClient);
+                if (fhirClient.hasNoResults(pageJson) && !anyDataFound) {
+                    log.info("HDC-261: No FHIR data for panelId={}", panel.panelId());
+                    break;
+                }
 
-            if (fhirJson.isPresent()) {
-                // HDC-175: Data found — save to S3 and mark panel as received
-                s3FhirOutputService.saveToS3(fhirJson.get(), panel);
+                anyDataFound = true;
+                String timestamp = s3FhirOutputService.currentPageTimestamp();
+                s3FhirOutputService.saveToS3(pageJson, panel, timestamp);
+                log.debug("HDC-261: Saved FHIR page panelId={} timestamp={}", panel.panelId(), timestamp);
+
+                // HDC-261: Advance (or clear) fhir_next_url after each successful page write.
+                currentUrl = fhirClient.getNextPageUrl(pageJson).orElse(null);
+                panelService.updatePanelFhirNextUrl(panel.panelId(), currentUrl);
+                // pageJson eligible for GC — no in-memory accumulation between pages.
+            }
+
+            if (anyDataFound) {
                 panelService.updatePanelStatusFhirReceived(panel.panelId());
                 log.info("HDC-175: Panel processed successfully panelId={}", panel.panelId());
             } else {
@@ -157,8 +179,16 @@ public class FhirDownloadRunner implements ApplicationRunner {
             // HDC-227: Always advance last_updated to the upper bound of the window just queried.
             panelService.updatePanelLastUpdated(panel.panelId(), nextLastUpdated);
             log.debug("HDC-227: Updated last_updated panelId={} nextLastUpdated={}", panel.panelId(), nextLastUpdated);
+
         } catch (Exception e) {
-            log.error("HDC-175: Error processing panelId={} — skipping panel", panel.panelId(), e);
+            // HDC-261: On failure, mark panel with error status.
+            // fhir_next_url retains the URL where paging stopped; reset status to SS-Loaded to resume.
+            log.error("HDC-261: Error processing panelId={} — marking ERROR-FHIR-PROCESSING", panel.panelId(), e);
+            try {
+                panelService.updatePanelStatusErrorFhirProcessing(panel.panelId());
+            } catch (Exception ex) {
+                log.error("HDC-261: Failed to update error status panelId={}", panel.panelId(), ex);
+            }
         }
     }
 
