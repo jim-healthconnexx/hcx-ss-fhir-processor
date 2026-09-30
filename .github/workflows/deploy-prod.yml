@@ -70,6 +70,10 @@ jobs:
             --query taskDefinition \
             > task-definition.json
 
+      # HDC-291: JAVA_TOOL_OPTIONS below is TEMPORARY diagnostics for the prod TLS
+      # handshake_failure investigation — the JVM auto-picks up this env var at startup
+      # (no ENTRYPOINT change needed) and emits handshake trace logs to stderr/CloudWatch.
+      # Remove the JAVA_TOOL_OPTIONS line once the diagnostic run has been captured.
       - name: HDC-175 Render updated task definition with new image URI
         id: render-task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
@@ -79,6 +83,7 @@ jobs:
           image: ${{ steps.build-image.outputs.image }}
           environment-variables: |
             SPRING_PROFILES_ACTIVE=prod
+            JAVA_TOOL_OPTIONS=-Djavax.net.debug=ssl:handshake
 
       - name: HDC-175 Register new task definition revision
         id: register-task-def
