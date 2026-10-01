@@ -23,4 +23,10 @@ public class AwsS3Properties {
     /** HDC-214: Optional S3 key for extra CA bundle (e.g. .p7b) to merge into the TrustManager.
      *  Null by default — prod environments that don't need a custom CA leave this unset. */
     private String truststoreKey;
+
+    /** HDC-291: Optional S3 bucket for the extra CA bundle, independent of {@link #keystoreBucket}.
+     *  Null by default — falls back to {@link #keystoreBucket} so existing single-bucket
+     *  environments (e.g. QA) are unaffected. Allows prod to point at a different bucket than
+     *  the one holding the P12 keystore, if that's where the CA bundle is actually maintained. */
+    private String truststoreBucket;
 }

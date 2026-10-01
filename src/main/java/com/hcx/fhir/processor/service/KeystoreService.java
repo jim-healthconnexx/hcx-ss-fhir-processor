@@ -18,7 +18,6 @@ import java.security.KeyStore;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
-import java.util.Enumeration;
 
 // HDC-175: Downloads the SureScripts P12 keystore from S3 and builds an mTLS SSLContext.
 @Slf4j
@@ -58,7 +57,6 @@ public class KeystoreService {
 
             KeyStore keyStore = KeyStore.getInstance("PKCS12");
             keyStore.load(new ByteArrayInputStream(p12Bytes), password);
-            logClientCertDetails(keyStore); // HDC-291: temporary diagnostics — remove once root cause confirmed.
 
             KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             kmf.init(keyStore, password);
@@ -99,38 +97,11 @@ public class KeystoreService {
             Collection<?> extraCerts = cf.generateCertificates(new ByteArrayInputStream(extraCaBytes));
             int i = 0;
             for (Object cert : extraCerts) {
-                X509Certificate x509 = (X509Certificate) cert;
-                // HDC-291: temporary diagnostics — remove once root cause confirmed.
-                log.info("HDC-291: Extra CA cert[{}] subject={} issuer={} notAfter={}",
-                        i, x509.getSubjectX500Principal().getName(), x509.getIssuerX500Principal().getName(), x509.getNotAfter());
-                merged.setCertificateEntry("extra-ca-" + i++, x509);
+                merged.setCertificateEntry("extra-ca-" + i++, (java.security.cert.Certificate) cert);
             }
             log.info("HDC-214: Merged {} extra CA certificate(s) into truststore", extraCerts.size());
         }
 
         return merged;
-    }
-
-    // HDC-291: Temporary diagnostics — logs the client (leaf) certificate's subject, issuer,
-    // serial number, and expiry so it can be compared against what SureScripts provisioned for prod.
-    // Never logs key material. Remove once handshake_failure root cause is confirmed.
-    private void logClientCertDetails(KeyStore keyStore) {
-        try {
-            Enumeration<String> aliases = keyStore.aliases();
-            while (aliases.hasMoreElements()) {
-                String alias = aliases.nextElement();
-                if (!keyStore.isKeyEntry(alias)) {
-                    continue;
-                }
-                java.security.cert.Certificate cert = keyStore.getCertificate(alias);
-                if (cert instanceof X509Certificate x509) {
-                    log.info("HDC-291: Client cert alias={} subject={} issuer={} serial={} notBefore={} notAfter={}",
-                            alias, x509.getSubjectX500Principal().getName(), x509.getIssuerX500Principal().getName(),
-                            x509.getSerialNumber(), x509.getNotBefore(), x509.getNotAfter());
-                }
-            }
-        } catch (Exception e) {
-            log.warn("HDC-291: Failed to log client cert details (non-fatal)", e);
-        }
     }
 }

@@ -70,10 +70,15 @@ public class FhirDownloadRunner implements ApplicationRunner {
                 s3Properties.getKeystoreBucket(), s3Properties.getKeystoreKey());
 
         // HDC-214: Optionally load extra CA bundle (e.g. staging .p7b) to extend the truststore.
+        // HDC-291: CA bundle bucket defaults to keystoreBucket but can be overridden independently
+        // via aws.s3.truststore-bucket, so prod can reference a different bucket than the P12 keystore.
         byte[] extraCaBytes = null;
         if (s3Properties.getTruststoreKey() != null && !s3Properties.getTruststoreKey().isBlank()) {
-            log.info("HDC-214: Loading extra CA bundle from s3://{}/{}", s3Properties.getKeystoreBucket(), s3Properties.getTruststoreKey());
-            extraCaBytes = keystoreService.downloadKeystore(s3Properties.getKeystoreBucket(), s3Properties.getTruststoreKey());
+            String truststoreBucket = s3Properties.getTruststoreBucket() != null && !s3Properties.getTruststoreBucket().isBlank()
+                    ? s3Properties.getTruststoreBucket()
+                    : s3Properties.getKeystoreBucket();
+            log.info("HDC-214: Loading extra CA bundle from s3://{}/{}", truststoreBucket, s3Properties.getTruststoreKey());
+            extraCaBytes = keystoreService.downloadKeystore(truststoreBucket, s3Properties.getTruststoreKey());
         }
 
         SSLContext sslContext = keystoreService.buildSslContext(p12Bytes, keystorePassword, extraCaBytes);
