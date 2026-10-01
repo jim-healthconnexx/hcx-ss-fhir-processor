@@ -42,6 +42,8 @@ public class SureScriptsFhirClient {
             throw new RuntimeException("HDC-215: senderUid missing for FHIR request");
         }
         try {
+            // HDC-291: Temporary diagnostic — log exact outgoing header values to rule out encoding/whitespace/truncation issues.
+            log.debug("HDC-291: Sending request url={} X-SENDER-UID='{}' X-SENDER-UID-QUALIFIER='10'", url, senderUid);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Accept", "application/fhir+json")
@@ -96,6 +98,8 @@ public class SureScriptsFhirClient {
     public String fetchCapabilitiesStatement(String url, HttpClient httpClient, String senderUid) {
         log.debug("HDC-239: Fetching CapabilityStatement url={}", url);
         try {
+            // HDC-291: Temporary diagnostic — log exact outgoing header values to rule out encoding/whitespace/truncation issues.
+            log.debug("HDC-291: Sending request url={} X-SENDER-UID='{}' X-SENDER-UID-QUALIFIER='10'", url, senderUid);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Accept", "application/fhir+json")
