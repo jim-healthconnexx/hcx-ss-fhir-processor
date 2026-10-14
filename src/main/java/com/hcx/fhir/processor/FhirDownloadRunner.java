@@ -8,6 +8,7 @@ import com.hcx.fhir.processor.service.EcsTaskService;
 import com.hcx.fhir.processor.service.FhirDownloadService;
 import com.hcx.fhir.processor.service.KeystoreService;
 import com.hcx.fhir.processor.service.PanelService;
+import com.hcx.fhir.processor.service.PanelTrackerService;
 import com.hcx.fhir.processor.service.S3FhirOutputService;
 import com.hcx.fhir.processor.service.SecretsService;
 import com.hcx.fhir.processor.service.SureScriptsFhirClient;
@@ -44,6 +45,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class FhirDownloadRunner implements ApplicationRunner {
 
+    // HDC-308: Status strings mirrored here for panel_tracker writes — kept package-private in
+    // PanelService, so duplicated as literals matching the values already logged in this class.
+    private static final String STATUS_SS_LOADED = "SS-Loaded";
+    private static final String STATUS_SS_FHIR_RECEIVED = "SS-FHIR-Received";
+    private static final String STATUS_ERROR_FHIR_PROCESSING = "ERROR-FHIR-PROCESSING";
+
     private final SecretsService secretsService;
     private final SecretsProperties secretsProperties;
     private final KeystoreService keystoreService;
@@ -53,6 +60,7 @@ public class FhirDownloadRunner implements ApplicationRunner {
     private final S3FhirOutputService s3FhirOutputService;
     private final SureScriptsFhirClient fhirClient;
     private final PanelService panelService;
+    private final PanelTrackerService panelTrackerService;
     private final EcsTaskService ecsTaskService;
     private final ApplicationContext applicationContext;
 
@@ -177,7 +185,10 @@ public class FhirDownloadRunner implements ApplicationRunner {
             if (anyDataFound) {
                 panelService.updatePanelStatusFhirReceived(panel.panelId());
                 log.info("HDC-175: Panel processed successfully panelId={}", panel.panelId());
+                recordTracker(panel.panelId(), STATUS_SS_FHIR_RECEIVED, panel.retryCount());
             } else {
+                // Note: no status change occurs here — panel remains SS-Loaded with no new data,
+                // so no tracker row is written (not a status mark per HDC-308).
                 log.info("HDC-227: No FHIR data for panelId={}", panel.panelId());
             }
 
@@ -194,6 +205,7 @@ public class FhirDownloadRunner implements ApplicationRunner {
                         panel.panelId(), nextRetryCount, fhirProperties.getMaxRetries(), e);
                 try {
                     panelService.updatePanelRetryCount(panel.panelId(), nextRetryCount);
+                    recordTracker(panel.panelId(), STATUS_SS_LOADED, nextRetryCount);
                 } catch (Exception ex) {
                     log.error("HDC-302: Failed to update retry_count panelId={}", panel.panelId(), ex);
                 }
@@ -202,10 +214,21 @@ public class FhirDownloadRunner implements ApplicationRunner {
                         panel.panelId(), fhirProperties.getMaxRetries(), e);
                 try {
                     panelService.updatePanelStatusErrorFhirProcessing(panel.panelId());
+                    recordTracker(panel.panelId(), STATUS_ERROR_FHIR_PROCESSING, nextRetryCount);
                 } catch (Exception ex) {
                     log.error("HDC-261: Failed to update error status panelId={}", panel.panelId(), ex);
                 }
             }
+        }
+    }
+
+    // HDC-308: Writes a panel_tracker audit row for the given outcome. Never allowed to fail the
+    // run — a tracker-insert failure is logged and swallowed so panel processing is unaffected.
+    private void recordTracker(int panelId, String status, int retryCount) {
+        try {
+            panelTrackerService.recordTracker(panelId, status, retryCount);
+        } catch (Exception e) {
+            log.error("HDC-308: Failed to write panel_tracker row panelId={} status={}", panelId, status, e);
         }
     }
 
