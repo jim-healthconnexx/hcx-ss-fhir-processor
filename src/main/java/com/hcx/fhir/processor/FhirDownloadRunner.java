@@ -186,13 +186,25 @@ public class FhirDownloadRunner implements ApplicationRunner {
             log.debug("HDC-227: Updated last_updated panelId={} nextLastUpdated={}", panel.panelId(), nextLastUpdated);
 
         } catch (Exception e) {
-            // HDC-261: On failure, mark panel with error status.
-            // fhir_next_url retains the URL where paging stopped; reset status to SS-Loaded to resume.
-            log.error("HDC-261: Error processing panelId={} — marking ERROR-FHIR-PROCESSING", panel.panelId(), e);
-            try {
-                panelService.updatePanelStatusErrorFhirProcessing(panel.panelId());
-            } catch (Exception ex) {
-                log.error("HDC-261: Failed to update error status panelId={}", panel.panelId(), ex);
+            // HDC-302: On failure, retry up to surescripts.fhir.max-retries before marking as error.
+            // fhir_next_url retains the URL where paging stopped so resumption picks up where it left off.
+            int nextRetryCount = panel.retryCount() + 1;
+            if (panel.retryCount() < fhirProperties.getMaxRetries()) {
+                log.warn("HDC-302: Error processing panelId={} — retry {}/{}, leaving status=SS-Loaded",
+                        panel.panelId(), nextRetryCount, fhirProperties.getMaxRetries(), e);
+                try {
+                    panelService.updatePanelRetryCount(panel.panelId(), nextRetryCount);
+                } catch (Exception ex) {
+                    log.error("HDC-302: Failed to update retry_count panelId={}", panel.panelId(), ex);
+                }
+            } else {
+                log.error("HDC-302: Error processing panelId={} — max retries ({}) reached, marking ERROR-FHIR-PROCESSING",
+                        panel.panelId(), fhirProperties.getMaxRetries(), e);
+                try {
+                    panelService.updatePanelStatusErrorFhirProcessing(panel.panelId());
+                } catch (Exception ex) {
+                    log.error("HDC-261: Failed to update error status panelId={}", panel.panelId(), ex);
+                }
             }
         }
     }

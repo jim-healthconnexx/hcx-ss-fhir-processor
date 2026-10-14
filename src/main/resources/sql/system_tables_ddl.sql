@@ -5,6 +5,9 @@
 -- HDC-138: ALTER TABLE for existing environments (run once on QA/prod before deploy):
 -- ALTER TABLE healthdata.customer ADD COLUMN s3_bucket varchar(255) NULL;
 
+-- HDC-302: ALTER TABLE for existing environments (run once on QA/prod before deploy):
+-- ALTER TABLE healthdata.panel ADD COLUMN retry_count int NOT NULL DEFAULT 0;
+
 CREATE TABLE healthdata.customer (
     customer_id int GENERATED ALWAYS AS IDENTITY,
     uuid uuid,
@@ -51,6 +54,8 @@ CREATE TABLE healthdata.panel (
     sent_request_filename varchar(255) NULL,
     last_updated timestamptz NULL,
     fhir_next_url text NULL,
+    -- HDC-302: Consecutive FHIR API failure count for this panel; resets implicitly when panel leaves SS-Loaded.
+    retry_count int NOT NULL DEFAULT 0,
     CONSTRAINT xpk_panel PRIMARY KEY (panel_id));
 
 CREATE TABLE healthdata.patient (

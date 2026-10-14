@@ -44,7 +44,8 @@ public class PanelService {
                         field(name("p", "data_source")),
                         field(name("p", "sent_request_filename")),
                         field("({0}::jsonb->'HDR'->>'SenderID')", String.class, field(name("pr", "file_config"))).as("sender_uid"),
-                        field(name("p", "fhir_next_url")))
+                        field(name("p", "fhir_next_url")),
+                        field(name("p", "retry_count")))
                 .from(table(name("panel")).as("p"))
                 .join(table(name("product")).as("pr"))
                 .on(field(name("p", "product_id")).eq(field(name("pr", "product_id"))))
@@ -107,6 +108,16 @@ public class PanelService {
         log.debug("HDC-261: Updated panel panelId={} status={}", panelId, STATUS_ERROR_FHIR_PROCESSING);
     }
 
+    // HDC-302: Updates panel.retry_count after a FHIR API error; status/panel remain unchanged (stays SS-Loaded).
+    public void updatePanelRetryCount(int panelId, int retryCount) {
+        log.debug("HDC-302: Updating panel panelId={} retry_count={}", panelId, retryCount);
+        dsl.update(table(name("panel")))
+                .set(field(name("retry_count")), retryCount)
+                .where(field(name("panel_id")).eq(panelId))
+                .execute();
+        log.debug("HDC-302: Updated panel panelId={} retry_count={}", panelId, retryCount);
+    }
+
     private PanelRecord toPanelRecord(Record r) {
         return new PanelRecord(
                 r.get(field(name("panel_id")), Integer.class),
@@ -119,7 +130,9 @@ public class PanelService {
                 // HDC-215: SenderID from product.file_config HDR used as X-SENDER-UID in FHIR requests.
                 r.get(field(name("sender_uid")), String.class),
                 // HDC-261: Resume URL for paging; null when no active page sequence.
-                r.get(field(name("fhir_next_url")), String.class)
+                r.get(field(name("fhir_next_url")), String.class),
+                // HDC-302: Consecutive FHIR API failure count for this panel.
+                r.get(field(name("retry_count")), Integer.class)
         );
     }
 

@@ -19,4 +19,7 @@ public class FhirProperties {
 
     /** HDC-261: Number of resources to request per FHIR page via _count parameter. */
     private int pageCount = 100;
+
+    /** HDC-302: Max retry attempts for a panel after a FHIR API error before marking it as error status. */
+    private int maxRetries = 10;
 }
